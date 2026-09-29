@@ -33,6 +33,25 @@ Redis: 6379
 
 비밀값은 `.env`에만 둔다.
 
+## Local database and cache
+
+PowerShell에서 `.env.example`을 복사하고 `POSTGRES_PASSWORD`를 로컬 전용 값으로 설정한 뒤 서비스를 시작한다.
+
+```powershell
+Copy-Item .env.example .env
+code .env
+docker compose --env-file .env -f .\infra\docker\compose.yaml up -d
+docker compose --env-file .env -f .\infra\docker\compose.yaml ps
+```
+
+서비스 중지:
+
+```powershell
+docker compose --env-file .env -f .\infra\docker\compose.yaml down
+```
+
+데이터 볼륨은 `down` 후에도 유지된다. 로컬 데이터까지 삭제하려면 `down -v`를 사용한다.
+
 ## Git
 
 권장 브랜치:

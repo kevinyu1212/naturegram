@@ -1,5 +1,11 @@
 # External References
 
+## Naturegram 저장소
+
+- https://github.com/kevinyu1212/naturegram
+
+제품 범위와 문서 기준선을 확인하는 프로젝트 저장소.
+
 ## iNaturalist
 
 - API: https://www.inaturalist.org/api
