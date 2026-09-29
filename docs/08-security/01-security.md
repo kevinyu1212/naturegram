@@ -2,10 +2,12 @@
 
 ## Authentication
 - Spring Security
-- password hashing
-- access/refresh token 정책
+- BCrypt password hashing
+- server-side session authentication for the MVP
+- HttpOnly, SameSite=Lax session cookie; enable Secure in deployed environments
+- CSRF token required for state-changing requests; fetch a new token after login
+- logout invalidates the server-side session
 - OAuth2 선택적 지원
-- session/token revoke 전략
 
 ## Authorization
 

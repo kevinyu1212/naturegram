@@ -2,7 +2,7 @@
 
 ## Current foundation check
 
-Until application source and build manifests are added, GitHub Actions validates the local Compose configuration, starts PostgreSQL/PostGIS and Redis, and verifies both services. The pull request pipeline should grow to include application lint, unit tests, builds, integration tests, and security checks as those components are introduced.
+GitHub Actions validates the local Compose configuration, starts PostgreSQL/PostGIS and Redis, verifies both services, and runs the API Maven verification suite on Java 25. The pull request pipeline should grow to include frontend and AI lint, tests, and security checks as those components are introduced.
 
 ## Pull Request
 

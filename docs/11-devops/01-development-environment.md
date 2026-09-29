@@ -6,7 +6,7 @@
 - Git
 - GitHub
 - VS Code
-- Java 21 LTS
+- Java 25 LTS
 - Node.js LTS
 - Python 3.11+
 - Docker Desktop
@@ -42,7 +42,11 @@ Copy-Item .env.example .env
 code .env
 docker compose --env-file .env -f .\infra\docker\compose.yaml up -d
 docker compose --env-file .env -f .\infra\docker\compose.yaml ps
+mvn -f .\apps\api\pom.xml verify
+mvn -f .\apps\api\pom.xml spring-boot:run
 ```
+
+The API starts at `http://localhost:8080`.
 
 서비스 중지:
 

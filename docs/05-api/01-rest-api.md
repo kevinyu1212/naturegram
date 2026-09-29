@@ -6,11 +6,18 @@ Base:
 ## Auth
 
 ```http
+GET  /auth/csrf
 POST /auth/signup
 POST /auth/login
 POST /auth/logout
 GET  /auth/me
 ```
+
+Signup accepts `username`, `email`, and `password`. Login accepts `usernameOrEmail` and `password`. Signup returns `201`, login returns the authenticated user, and logout returns `204`.
+
+Before signup, login, or logout, call `GET /auth/csrf` and send its `token` as `X-XSRF-TOKEN` with the `XSRF-TOKEN` cookie. Login rotates the CSRF token; fetch a new one before the next write request. The session cookie is HttpOnly and SameSite=Lax.
+
+Unauthenticated protected requests return `401`. Errors use `{ "code": "...", "message": "..." }`.
 
 ## Observations
 
