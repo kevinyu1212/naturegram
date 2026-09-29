@@ -1,5 +1,9 @@
 # CI/CD
 
+## Current foundation check
+
+Until application source and build manifests are added, GitHub Actions validates the local Compose configuration, starts PostgreSQL/PostGIS and Redis, and verifies both services. The pull request pipeline should grow to include application lint, unit tests, builds, integration tests, and security checks as those components are introduced.
+
 ## Pull Request
 
 1. lint
