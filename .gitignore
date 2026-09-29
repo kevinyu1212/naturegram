@@ -1,0 +1,39 @@
+# Node
+node_modules/
+dist/
+.vite/
+
+# Java
+target/
+.gradle/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+
+# Local data
+data/local/
+uploads/
