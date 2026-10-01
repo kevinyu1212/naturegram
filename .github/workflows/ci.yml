@@ -28,8 +28,6 @@ jobs:
       - name: Start local services
         run: docker compose --env-file .env.example -f infra/docker/compose.yaml up -d --wait --wait-timeout 120
 
-      - name: Verify PostGIS
-        run: docker compose --env-file .env.example -f infra/docker/compose.yaml exec -T postgres psql -U naturegram -d naturegram -c "SELECT PostGIS_Version();"
 
       - name: Verify Redis
         run: test "$(docker compose --env-file .env.example -f infra/docker/compose.yaml exec -T redis redis-cli ping)" = "PONG"
