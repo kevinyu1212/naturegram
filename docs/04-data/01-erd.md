@@ -9,13 +9,14 @@ users
 observations
   1 ─── N observation_media
   1 ─── N identifications
-  1 ─── 1 observation_location
-  1 ─── 1 observation_environment
-  N ─── 1 taxa
+  1 ─── N predictions (AI outputs)
+  1 ─── 0..1 observation_locations
+  N ─── 0..1 taxa (observer-selected current taxon)
 
 identifications
   N ─── 1 users
   N ─── 1 taxa
+  1 ─── N expert_reviews (reviews of human identifications)
 
 projects
   1 ─── N project_members
@@ -99,3 +100,11 @@ missions
 - temporal_quality_score
 - flags
 - calculated_at
+
+## MVP clarifications
+
+- `observations.taxon_id` is the observer-selected current taxon; it is separate from identification history.
+- Human/community assertions are stored as identifications. AI outputs are predictions, not identifications.
+- Expert reviews refer to human identification assertions.
+- An observation may have no location. `visibility` controls observation access; `geoprivacy` controls location precision.
+- Environment fields, quality-score scales, license catalogs, and observation status values remain deferred until their rules are defined.
