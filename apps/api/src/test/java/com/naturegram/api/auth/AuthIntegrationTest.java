@@ -2,6 +2,8 @@ package com.naturegram.api.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -224,6 +226,62 @@ class AuthIntegrationTest {
                 .content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+    @Test
+    void onlyOwnerCanPatchOrDeleteObservation() throws Exception {
+        users.save(UserAccount.create(
+                "patch_owner", "patch-owner@example.org", passwordEncoder.encode("test-password")));
+        users.save(UserAccount.create(
+                "patch_other", "patch-other@example.org", passwordEncoder.encode("test-password")));
+
+        Csrf csrf = csrf();
+        MvcResult created = mvc.perform(withCsrf(
+                        post("/api/v1/observations").with(user("patch_owner").roles("USER")), csrf)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"observedAt":"2026-09-30T10:15:00Z"}
+                        """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String id = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();
+
+        mvc.perform(withCsrf(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .patch("/api/v1/observations/" + id)
+                                .with(user("patch_other").roles("USER")), csrf)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"title":"not mine"}
+                        """))
+                .andExpect(status().isNotFound());
+
+        mvc.perform(withCsrf(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .patch("/api/v1/observations/" + id)
+                                .with(user("patch_owner").roles("USER")), csrf)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"title":"Updated title","visibility":"public"}
+                        """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Updated title"))
+                .andExpect(jsonPath("$.visibility").value("public"));
+
+        mvc.perform(withCsrf(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .delete("/api/v1/observations/" + id)
+                                .with(user("patch_other").roles("USER")), csrf))
+                .andExpect(status().isNotFound());
+
+        mvc.perform(withCsrf(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .delete("/api/v1/observations/" + id)
+                                .with(user("patch_owner").roles("USER")), csrf))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/v1/observations/" + id)
+                        .with(user("patch_owner").roles("USER")))
+                .andExpect(status().isNotFound());
     }
     @Test
     void flywayEnablesPostgisExtension() {

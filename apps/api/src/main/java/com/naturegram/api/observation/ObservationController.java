@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -103,6 +104,110 @@ public class ObservationController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @org.springframework.web.bind.annotation.PatchMapping("/{id}")
+    public ResponseEntity<ObservationResponse> patchMine(
+            @AuthenticationPrincipal UserDetails principal,
+            @PathVariable UUID id,
+            @RequestBody com.fasterxml.jackson.databind.JsonNode patch) {
+        UUID ownerId = currentUser(principal).getId();
+        if (patch == null || !patch.isObject() || patch.isEmpty()) {
+            throw new IllegalArgumentException("A non-empty JSON object is required.");
+        }
+
+        Set<String> allowed = Set.of("observedAt", "title", "description", "taxonId", "visibility");
+        patch.fieldNames().forEachRemaining(field -> {
+            if (!allowed.contains(field)) {
+                throw new IllegalArgumentException("Unsupported observation field.");
+            }
+        });
+
+        List<String> assignments = new ArrayList<>();
+        List<Object> values = new ArrayList<>();
+
+        if (patch.has("observedAt")) {
+            var value = patch.get("observedAt");
+            if (!value.isTextual()) {
+                throw new IllegalArgumentException("observedAt must be an ISO-8601 timestamp.");
+            }
+            try {
+                assignments.add("observed_at = ?");
+                values.add(Timestamp.from(Instant.parse(value.asText())));
+            } catch (java.time.format.DateTimeParseException exception) {
+                throw new IllegalArgumentException("observedAt must be an ISO-8601 timestamp.");
+            }
+        }
+        if (patch.has("title")) {
+            var value = patch.get("title");
+            if (!value.isNull() && (!value.isTextual() || value.asText().length() > 200)) {
+                throw new IllegalArgumentException("Invalid title.");
+            }
+            assignments.add("title = ?");
+            values.add(value.isNull() ? null : value.asText());
+        }
+        if (patch.has("description")) {
+            var value = patch.get("description");
+            if (!value.isNull() && (!value.isTextual() || value.asText().length() > 5000)) {
+                throw new IllegalArgumentException("Invalid description.");
+            }
+            assignments.add("description = ?");
+            values.add(value.isNull() ? null : value.asText());
+        }
+        if (patch.has("taxonId")) {
+            var value = patch.get("taxonId");
+            UUID taxonId = null;
+            if (!value.isNull()) {
+                if (!value.isTextual()) {
+                    throw new IllegalArgumentException("taxonId must be a UUID or null.");
+                }
+                try {
+                    taxonId = UUID.fromString(value.asText());
+                } catch (IllegalArgumentException exception) {
+                    throw new IllegalArgumentException("taxonId must be a UUID or null.");
+                }
+                if (!taxonExists(taxonId)) {
+                    throw new IllegalArgumentException("Unknown taxon.");
+                }
+            }
+            assignments.add("taxon_id = ?");
+            values.add(taxonId);
+        }
+        if (patch.has("visibility")) {
+            var value = patch.get("visibility");
+            if (!value.isTextual() || !VISIBILITIES.contains(value.asText())) {
+                throw new IllegalArgumentException("Invalid visibility.");
+            }
+            assignments.add("visibility = ?");
+            values.add(value.asText());
+        }
+
+        assignments.add("updated_at = CURRENT_TIMESTAMP");
+        values.add(id);
+        values.add(ownerId);
+        int updated = jdbc.update(
+                "UPDATE observations SET " + String.join(", ", assignments)
+                        + " WHERE id = ? AND observer_id = ?",
+                values.toArray());
+
+        if (updated == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        return findOwned(id, ownerId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteMine(
+            @AuthenticationPrincipal UserDetails principal,
+            @PathVariable UUID id) {
+        UUID ownerId = currentUser(principal).getId();
+        int deleted = jdbc.update(
+                "DELETE FROM observations WHERE id = ? AND observer_id = ?",
+                id, ownerId);
+        return deleted == 0
+                ? ResponseEntity.notFound().build()
+                : ResponseEntity.noContent().build();
+    }
     private UserAccount currentUser(UserDetails principal) {
         return users.findByUsernameIgnoreCase(principal.getUsername())
                 .orElseThrow(() -> new IllegalArgumentException("Authenticated account was not found."));
