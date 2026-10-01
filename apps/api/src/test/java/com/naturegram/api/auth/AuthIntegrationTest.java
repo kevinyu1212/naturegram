@@ -3,6 +3,7 @@ package com.naturegram.api.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -23,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -63,6 +65,8 @@ class AuthIntegrationTest {
 
     @BeforeEach
     void clearUsers() {
+        jdbcTemplate.update("DELETE FROM observations");
+        jdbcTemplate.update("DELETE FROM taxa");
         users.deleteAll();
     }
 
@@ -166,6 +170,61 @@ class AuthIntegrationTest {
                 .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
     }
 
+    @Test
+    void observationsArePrivateByDefaultAndScopedToOwner() throws Exception {
+        UserAccount owner = users.save(UserAccount.create(
+                "obs_owner", "owner@example.org", passwordEncoder.encode("test-password")));
+        users.save(UserAccount.create(
+                "obs_other", "other@example.org", passwordEncoder.encode("test-password")));
+
+        Csrf csrf = csrf();
+        MvcResult created = mvc.perform(withCsrf(
+                        post("/api/v1/observations")
+                                .with(user("obs_owner").roles("USER")),
+                        csrf)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"observedAt":"2026-09-30T10:15:00Z","title":"Field observation"}
+                        """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.observerId").value(owner.getId().toString()))
+                .andExpect(jsonPath("$.visibility").value("private"))
+                .andExpect(jsonPath("$.location").doesNotExist())
+                .andReturn();
+
+        String observationId = objectMapper.readTree(
+                created.getResponse().getContentAsString()).get("id").asText();
+
+        mvc.perform(get("/api/v1/observations/" + observationId)
+                        .with(user("obs_owner").roles("USER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(observationId));
+
+        mvc.perform(get("/api/v1/observations/" + observationId)
+                        .with(user("obs_other").roles("USER")))
+                .andExpect(status().isNotFound());
+
+        mvc.perform(get("/api/v1/observations")
+                        .with(user("obs_other").roles("USER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void observationEndpointsRequireAuthenticationAndValidateRequiredFields() throws Exception {
+        mvc.perform(get("/api/v1/observations"))
+                .andExpect(status().isUnauthorized());
+
+        Csrf csrf = csrf();
+        mvc.perform(withCsrf(
+                        post("/api/v1/observations")
+                                .with(user("validation_user").roles("USER")),
+                        csrf)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
     @Test
     void flywayEnablesPostgisExtension() {
         String version = jdbcTemplate.queryForObject("SELECT PostGIS_Version()", String.class);
